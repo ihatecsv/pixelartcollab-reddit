@@ -1,5 +1,8 @@
 import { Devvit, svg } from "@devvit/public-api";
 
+const VOTING_PERIOD_DURATION = 5 * 60 * 1000;
+const UPDATE_RATE = 1000;
+
 const colors = [
   "#FFFFFF",
   "#E4E4E4",
@@ -19,8 +22,18 @@ const colors = [
   "#820080",
 ];
 
-// 5 minutes
-const VOTING_PERIOD_DURATION = 5 * 60 * 1000;
+type VoteDetail = {
+  count: number;
+  userIds: string[];
+};
+
+type PixelVotes = {
+  [color: string]: VoteDetail;
+};
+
+type Votes = {
+  [pixelKey: string]: PixelVotes;
+};
 
 function isDark(color: string) {
   const hex = color.replace("#", "");
@@ -63,8 +76,8 @@ Devvit.addCustomPostType({
     const votesKey = `colorVotes_${context.postId}`;
     const periodCloseKey = `colorPeriodClose_${context.postId}`;
     let grid = [];
-    let votes = {};
-    let nextPeriodClose = parseInt(await redis.get(periodCloseKey));
+    let votes: Votes = {};
+    let nextPeriodClose = parseInt(await redis.get(periodCloseKey) || "0");
     if (!nextPeriodClose) {
       nextPeriodClose = Date.now() + VOTING_PERIOD_DURATION;
       await redis.set(periodCloseKey, nextPeriodClose + "");
@@ -98,8 +111,8 @@ Devvit.addCustomPostType({
       if (!votes[voteKey]) votes[voteKey] = {};
 
       // Check if the user has already voted for this specific pixel in this period
-      const userVote = Object.entries(votes[voteKey]).find(
-        ([_, voteDetails]) => voteDetails.userId === context.userId
+      const userVote = Object.values(votes[voteKey]).some((voteDetail) =>
+        voteDetail.userIds.includes(context.userId || "")
       );
 
       if (userVote) {
@@ -110,11 +123,14 @@ Devvit.addCustomPostType({
         return;
       }
 
-      // Store both the vote and the user who voted
-      votes[voteKey][color] = {
-        count: (votes[voteKey][color]?.count || 0) + 1,
-        userId: context.userId,
-      };
+      // Initialize color vote detail if not present
+      if (!votes[voteKey][color]) {
+        votes[voteKey][color] = { count: 0, userIds: [] };
+      }
+
+      // Increment vote count and add user ID
+      votes[voteKey][color].count += 1;
+      votes[voteKey][color].userIds.push(context.userId || "");
 
       await redis.set(votesKey, JSON.stringify(votes));
     };
@@ -122,20 +138,24 @@ Devvit.addCustomPostType({
     // Periodically refresh the grid
     const checkGrid = context.useInterval(async () => {
       const now = Date.now();
-      let latestGrid = JSON.parse((await redis.get(gridKey)) || "[]");
-      let latestVotes = JSON.parse((await redis.get(votesKey)) || "{}");
+      let latestGrid = JSON.parse((await redis.get(gridKey)) || "[]") as string[][];
+      let latestVotes = JSON.parse((await redis.get(votesKey)) || "{}") as Votes;
       let periodClose = parseInt((await redis.get(periodCloseKey)) || "0");
 
       if (now >= periodClose) {
         // Process votes
         for (const [key, colorVotes] of Object.entries(latestVotes)) {
           const [x, y] = key.split(",").map(Number);
-          const winningColor = Object.entries(colorVotes).reduce((a, b) =>
-            a[1].count > b[1].count ? a : b
-          )[0];
+          let maxCount = 0;
+          let winningColor = "#FFFFFF"; // Default color in case no votes are found
+          for (const [color, { count }] of Object.entries(colorVotes)) {
+            if (count > maxCount) {
+              maxCount = count;
+              winningColor = color;
+            }
+          }
           latestGrid[x][y] = winningColor;
         }
-
         // Reset votes
         latestVotes = {};
         await redis.set(votesKey, JSON.stringify(latestVotes));
@@ -149,25 +169,25 @@ Devvit.addCustomPostType({
         await redis.set(periodCloseKey, periodClose.toString());
       }
 
-      // Update countdown
       setCountdown(periodClose - now);
-    }, 1000); // Check every second
+    }, UPDATE_RATE);
 
     checkGrid.start();
 
     const selectedPixelKey = selectedPixel
       ? `${selectedPixel[0]},${selectedPixel[1]}`
       : null;
+
     const userHasVotedForSelectedPixel =
-      selectedPixelKey &&
-      votes[selectedPixelKey] &&
-      Object.values(votes[selectedPixelKey]).some(
-        (vote) => vote.userId === context.userId
+      !!selectedPixelKey &&
+      !!votes[selectedPixelKey] &&
+      !!Object.values(votes[selectedPixelKey]).some((voteDetail) =>
+        voteDetail.userIds.includes(context.userId || "")
       );
 
     return (
       <blocks>
-        <vstack padding="medium" alignment="center center">
+        <vstack padding="medium" alignment="center middle">
           <vstack backgroundColor="white" border="thin" borderColor="gray">
             {localGrid.map((row, rowIndex) => (
               <hstack>
@@ -279,6 +299,7 @@ Devvit.addCustomPostType({
 Devvit.addMenuItem({
   location: "subreddit",
   label: "Create a Pixel Art Collab",
+  forUserType: ["moderator"],
   onPress: async (_, context) => {
     const { reddit, ui } = context;
     const currentSubreddit = await reddit.getCurrentSubreddit();
@@ -291,7 +312,9 @@ Devvit.addMenuItem({
         </vstack>
       ),
     });
-    ui.showToast(`Created a new Pixel Art Collab post in ${currentSubreddit.name}`);
+    ui.showToast(
+      `Created a new Pixel Art Collab post in ${currentSubreddit.name}`
+    );
   },
 });
 
