@@ -203,7 +203,7 @@ Devvit.addCustomPostType({
 
     return (
       <blocks>
-        <vstack padding="medium" alignment="center middle">
+        <vstack padding="large" alignment="center middle">
           <vstack backgroundColor="white" border="thin" borderColor="gray">
             {localGrid.map((row, rowIndex) => (
               <hstack>
