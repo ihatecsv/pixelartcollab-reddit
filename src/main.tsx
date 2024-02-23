@@ -109,12 +109,18 @@ Devvit.addCustomPostType({
     const voteForColor = async (x: number, y: number, color: string) => {
       const voteKey = `${x},${y}`;
       if (!votes[voteKey]) votes[voteKey] = {};
-
+    
+      // Check if the selected color is the same as the current color of the pixel
+      if (localGrid[x][y] === color) {
+        context.ui.showToast("You cannot vote for the color the pixel already is.");
+        return;
+      }
+    
       // Check if the user has already voted for this specific pixel in this period
       const userVote = Object.values(votes[voteKey]).some((voteDetail) =>
         voteDetail.userIds.includes(context.userId || "")
       );
-
+    
       if (userVote) {
         // Inform the user they have already voted for this pixel in this period
         context.ui.showToast(
@@ -122,18 +128,18 @@ Devvit.addCustomPostType({
         );
         return;
       }
-
+    
       // Initialize color vote detail if not present
       if (!votes[voteKey][color]) {
         votes[voteKey][color] = { count: 0, userIds: [] };
       }
-
+    
       // Increment vote count and add user ID
       votes[voteKey][color].count += 1;
       votes[voteKey][color].userIds.push(context.userId || "");
-
+    
       await redis.set(votesKey, JSON.stringify(votes));
-
+    
       const updatedVotesRes = await redis.get(votesKey);
       if (updatedVotesRes) {
         const updatedVotes = JSON.parse(updatedVotesRes);
@@ -232,47 +238,58 @@ Devvit.addCustomPostType({
                       <image
                         onPress={() => {
                           setSelectedColor(color);
+                          if (!userHasVotedForSelectedPixel) {
+                            voteForColor(
+                              selectedPixel[0],
+                              selectedPixel[1],
+                              color
+                            );
+                          }
                         }}
                         url={svg`<svg viewBox="0 0 20 20">
-          <rect fill="${color}" x="0" y="0" width="20" height="20" />
-          ${
-            selectedColor === color
-              ? `<rect fill="none" stroke="gold" stroke-width="4" x="0" y="0" width="20" height="20" />`
-              : ""
-          }
-          <text x="10" y="15" font-size="${
-            `${
-              selectedPixel &&
-              votes[`${selectedPixel[0]},${selectedPixel[1]}`] &&
-              votes[`${selectedPixel[0]},${selectedPixel[1]}`][color]
-                ? votes[`${selectedPixel[0]},${selectedPixel[1]}`][color].count
-                : 0
-            }`.length === 1
-              ? "15"
-              : `${
-                  selectedPixel &&
-                  votes[`${selectedPixel[0]},${selectedPixel[1]}`] &&
-                  votes[`${selectedPixel[0]},${selectedPixel[1]}`][color]
-                    ? votes[`${selectedPixel[0]},${selectedPixel[1]}`][color]
-                        .count
-                    : 0
-                }`.length === 2
-              ? "12"
-              : "8"
-          }" fill="${
-                          isDark(color) ? "white" : "black"
-                        }" text-anchor="middle" font-family="monospace">${
-                          selectedPixel &&
-                          votes[`${selectedPixel[0]},${selectedPixel[1]}`] &&
-                          votes[`${selectedPixel[0]},${selectedPixel[1]}`][
-                            color
-                          ]
-                            ? votes[`${selectedPixel[0]},${selectedPixel[1]}`][
-                                color
-                              ].count
-                            : 0
-                        }</text>
-          </svg>`}
+                          <rect fill="${color}" x="0" y="0" width="20" height="20" />
+                          ${
+                            userHasVotedForSelectedPixel &&
+                            selectedPixel &&
+                            votes[`${selectedPixel[0]},${selectedPixel[1]}`] &&
+                            votes[`${selectedPixel[0]},${selectedPixel[1]}`][color]
+                              ? `<rect fill="none" x="0" y="0" width="20" height="20" />`
+                              : ""
+                          }
+                          <text x="10" y="15" font-size="${
+                            `${
+                              selectedPixel &&
+                              votes[`${selectedPixel[0]},${selectedPixel[1]}`] &&
+                              votes[`${selectedPixel[0]},${selectedPixel[1]}`][color]
+                                ? votes[`${selectedPixel[0]},${selectedPixel[1]}`][color].count
+                                : 0
+                            }`.length === 1
+                              ? "15"
+                              : `${
+                                  selectedPixel &&
+                                  votes[`${selectedPixel[0]},${selectedPixel[1]}`] &&
+                                  votes[`${selectedPixel[0]},${selectedPixel[1]}`][color]
+                                    ? votes[`${selectedPixel[0]},${selectedPixel[1]}`][color].count
+                                    : 0
+                                }`.length === 2
+                              ? "12"
+                              : "8"
+                          }" fill="${
+                                          isDark(color) ? "white" : "black"
+                                        }" text-anchor="middle" font-family="monospace" font-weight="${
+                                          selectedPixel &&
+                                          votes[`${selectedPixel[0]},${selectedPixel[1]}`] &&
+                                          votes[`${selectedPixel[0]},${selectedPixel[1]}`][color]
+                                            ? "bold"
+                                            : "normal"
+                                        }">${
+                                          selectedPixel &&
+                                          votes[`${selectedPixel[0]},${selectedPixel[1]}`] &&
+                                          votes[`${selectedPixel[0]},${selectedPixel[1]}`][color]
+                                            ? votes[`${selectedPixel[0]},${selectedPixel[1]}`][color].count
+                                            : 0
+                                        }</text>
+                          </svg>`}
                         imageHeight={20}
                         imageWidth={20}
                       />
@@ -281,22 +298,11 @@ Devvit.addCustomPostType({
                 ))}
               </vstack>
               <vstack>
-                <button
-                  onPress={() => {
-                    voteForColor(
-                      selectedPixel[0],
-                      selectedPixel[1],
-                      selectedColor
-                    );
-                  }}
-                  disabled={!selectedColor || userHasVotedForSelectedPixel}
-                >
-                  {userHasVotedForSelectedPixel
-                    ? `Your vote will be counted in ${millisecondsToNaturalLanguage(
-                        Math.max(0, countdown)
-                      )}`
-                    : "Vote"}
-                </button>
+                <text>
+                  {`${
+                    userHasVotedForSelectedPixel ? "Voted, " : ""
+                  }${millisecondsToNaturalLanguage(countdown)} remaining`}
+                </text>
               </vstack>
             </>
           )}
