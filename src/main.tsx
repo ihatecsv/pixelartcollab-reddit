@@ -77,7 +77,7 @@ Devvit.addCustomPostType({
     const periodCloseKey = `colorPeriodClose_${context.postId}`;
     let grid = [];
     let votes: Votes = {};
-    let nextPeriodClose = parseInt(await redis.get(periodCloseKey) || "0");
+    let nextPeriodClose = parseInt((await redis.get(periodCloseKey)) || "0");
     if (!nextPeriodClose) {
       nextPeriodClose = Date.now() + VOTING_PERIOD_DURATION;
       await redis.set(periodCloseKey, nextPeriodClose + "");
@@ -133,13 +133,23 @@ Devvit.addCustomPostType({
       votes[voteKey][color].userIds.push(context.userId || "");
 
       await redis.set(votesKey, JSON.stringify(votes));
+
+      const updatedVotesRes = await redis.get(votesKey);
+      if (updatedVotesRes) {
+        const updatedVotes = JSON.parse(updatedVotesRes);
+        votes = updatedVotes;
+      }
     };
 
     // Periodically refresh the grid
     const checkGrid = context.useInterval(async () => {
       const now = Date.now();
-      let latestGrid = JSON.parse((await redis.get(gridKey)) || "[]") as string[][];
-      let latestVotes = JSON.parse((await redis.get(votesKey)) || "{}") as Votes;
+      let latestGrid = JSON.parse(
+        (await redis.get(gridKey)) || "[]"
+      ) as string[][];
+      let latestVotes = JSON.parse(
+        (await redis.get(votesKey)) || "{}"
+      ) as Votes;
       let periodClose = parseInt((await redis.get(periodCloseKey)) || "0");
 
       if (now >= periodClose) {
