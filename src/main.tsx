@@ -2,6 +2,7 @@ import { Devvit, svg } from "@devvit/public-api";
 
 const VOTING_PERIOD_DURATION = 5 * 60 * 1000;
 const UPDATE_RATE = 1000;
+const N = 16;
 
 const colors = [
   "#FFFFFF",
@@ -34,6 +35,29 @@ type PixelVotes = {
 type Votes = {
   [pixelKey: string]: PixelVotes;
 };
+
+function adjustCanvasSize(canvas: string[][], targetSize: number): string[][] {
+  const currentSize = canvas.length;
+  const adjustedCanvas = [];
+
+  for (let i = 0; i < targetSize; i++) {
+    if (i < currentSize) {
+      // If the current row exists, adjust its length
+      const currentRow = canvas[i];
+      adjustedCanvas[i] = currentRow.slice(0, targetSize);
+
+      // If the row is shorter than the target size, fill the rest with white
+      while (adjustedCanvas[i].length < targetSize) {
+        adjustedCanvas[i].push("#FFFFFF");
+      }
+    } else {
+      // If the current row does not exist, fill the new row with white
+      adjustedCanvas.push(Array(targetSize).fill("#FFFFFF"));
+    }
+  }
+
+  return adjustedCanvas;
+}
 
 function isDark(color: string) {
   const hex = color.replace("#", "");
@@ -83,15 +107,14 @@ Devvit.addCustomPostType({
       await redis.set(periodCloseKey, nextPeriodClose + "");
     }
     let gridRes = await redis.get(gridKey);
-    if (!gridRes) {
-      grid = Array.from(
-        { length: 16 },
-        () => Array.from({ length: 16 }, () => "#FFFFFF") // Start as white
-      );
-      await redis.set(gridKey, JSON.stringify(grid));
+    if (gridRes) {
+      let originalGrid = JSON.parse(gridRes) as string[][];
+      grid = adjustCanvasSize(originalGrid, N); // Adjust the canvas size to N x N
     } else {
-      grid = JSON.parse(gridRes) as string[][];
+      // If no grid exists in Redis, initialize a new N x N grid filled with white
+      grid = Array.from({ length: N }, () => Array.from({ length: N }, () => "#FFFFFF"));
     }
+    await redis.set(gridKey, JSON.stringify(grid));
     let votesRes = await redis.get(votesKey);
     if (votesRes) {
       votes = JSON.parse(votesRes);
@@ -219,8 +242,8 @@ Devvit.addCustomPostType({
                             : ""
                         }
                       </svg>`}
-                    imageHeight={16}
-                    imageWidth={16}
+                    imageHeight={256 / N}
+                    imageWidth={256 / N}
                     onPress={() => {
                       setSelectedPixel([rowIndex, colIndex]);
                     }}
