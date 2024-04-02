@@ -1,7 +1,7 @@
 import { Devvit, svg } from "@devvit/public-api";
 
-//const VOTING_PERIOD_DURATION = 5 * 60 * 1000;
-const VOTING_PERIOD_DURATION = 20 * 1000;
+const VOTING_PERIOD_DURATION = 5 * 60 * 1000;
+//const VOTING_PERIOD_DURATION = 20 * 1000;
 const UPDATE_RATE = 1000;
 const N = 16;
 
