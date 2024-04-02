@@ -1,6 +1,7 @@
 import { Devvit, svg } from "@devvit/public-api";
 
-const VOTING_PERIOD_DURATION = 5 * 60 * 1000;
+//const VOTING_PERIOD_DURATION = 5 * 60 * 1000;
+const VOTING_PERIOD_DURATION = 20 * 1000;
 const UPDATE_RATE = 1000;
 const N = 16;
 
@@ -119,6 +120,9 @@ Devvit.addCustomPostType({
     const gridKey = `colorGrid_${context.postId}`;
     const votesKey = `colorVotes_${context.postId}`;
     const periodCloseKey = `colorPeriodClose_${context.postId}`;
+    const gridHistoryKeyBase = `colorGridHistory_${context.postId}_`;
+    const gridHistoryCountKey = `colorGridHistoryCount_${context.postId}`;
+
     let grid = [];
     let votes: Votes = {};
     let nextPeriodClose = parseInt((await redis.get(periodCloseKey)) || "0");
@@ -140,6 +144,8 @@ Devvit.addCustomPostType({
       votes = JSON.parse(votesRes);
     }
 
+    let startFrame = parseInt((await redis.get(gridHistoryCountKey)) || "0");
+
     const [selectedPixel, setSelectedPixel] = context.useState<
       [number, number] | null
     >([0, 0]);
@@ -147,6 +153,8 @@ Devvit.addCustomPostType({
     const [countdown, setCountdown] = context.useState<number>(
       nextPeriodClose - Date.now()
     );
+    const [currentFrame, setCurrentFrame] = context.useState<number>(startFrame);
+    const [selectedFrame, setSelectedFrame] = context.useState<number>(startFrame);
 
     const voteForColor = async (x: number, y: number, color: string) => {
       const voteKey = `${x},${y}`;
@@ -201,6 +209,11 @@ Devvit.addCustomPostType({
     const checkGrid = context.useInterval(async () => {
       const now = Date.now();
 
+      if (!isPostMadeToday(new Date(postDate))) {
+        checkGrid.stop();
+        return;
+      }
+
       // Fetch the latest grid and votes from Redis at the beginning of each interval
       let latestGridRes = await redis.get(gridKey);
       let latestGrid = latestGridRes ? JSON.parse(latestGridRes) as string[][] : localGrid; // Use localGrid as fallback
@@ -229,6 +242,11 @@ Devvit.addCustomPostType({
         // Update grid
         await redis.set(gridKey, JSON.stringify(latestGrid));
 
+        // Save winning frame
+        const gridHistoryCount = parseInt((await redis.get(gridHistoryCountKey)) || "0") + 1;
+        await redis.set(`${gridHistoryKeyBase}${gridHistoryCount}`, JSON.stringify(latestGrid));
+        await redis.set(gridHistoryCountKey, gridHistoryCount.toString());
+
         // Fetch the latest grid from Redis after updating
         latestGridRes = await redis.get(gridKey);
         if (latestGridRes) {
@@ -236,6 +254,8 @@ Devvit.addCustomPostType({
         }
 
         setLocalGrid(latestGrid);
+        setCurrentFrame(gridHistoryCount);
+        setSelectedFrame(gridHistoryCount);
 
         // Set next period close
         periodClose = now + VOTING_PERIOD_DURATION;
@@ -244,6 +264,21 @@ Devvit.addCustomPostType({
 
       setCountdown(periodClose - now);
     }, UPDATE_RATE);
+
+    const navigateFrames = async (direction: number) => {
+      const newFrame = selectedFrame + direction;
+      const gridHistoryCount = parseInt((await redis.get(gridHistoryCountKey)) || "0");
+      if (newFrame < 0 || newFrame > gridHistoryCount) {
+        return;
+      }
+
+      const newFrameRes = await redis.get(`${gridHistoryKeyBase}${newFrame}`);
+      if (newFrameRes) {
+        const newFrameData = JSON.parse(newFrameRes);
+        setLocalGrid(newFrameData);
+        setSelectedFrame(newFrame);
+      }
+    };
 
     checkGrid.start();
 
@@ -318,13 +353,13 @@ Devvit.addCustomPostType({
                   </hstack>
                 ))}
               </vstack>
-              <vstack>
+              <hstack gap="small" alignment="middle">
                 <text>
                   {isPostMadeToday(new Date(postDate)) ?
                     `${userHasVotedForSelectedPixel ? "Voted, " : ""}${millisecondsToNaturalLanguage(countdown)} remaining` :
                     "Voting has concluded"}
                 </text>
-              </vstack>
+              </hstack>
             </>
           )}
         </vstack>
