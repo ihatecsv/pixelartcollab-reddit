@@ -105,8 +105,6 @@ Devvit.addCustomPostType({
   render: async (context) => {
     const { redis } = context;
 
-    context.postId
-
     const post = await context.reddit.getPostById(context.postId || "");
 
     if (!post) {
