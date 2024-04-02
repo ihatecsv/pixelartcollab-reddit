@@ -360,7 +360,9 @@ Devvit.addCustomPostType({
                 <text>
                   {isPostMadeToday(new Date(postDate)) ?
                     `${userHasVotedForSelectedPixel ? "Voted, " : ""}${millisecondsToNaturalLanguage(countdown)} remaining` :
-                    `Frame ${selectedFrame + 1} / ${maxFrame + 1}`
+                    startFrame > 0 ?
+                    `Frame ${selectedFrame + 1} / ${maxFrame + 1}` :
+                    "Voting has concluded"
                 }
                 </text>
                 {!isPostMadeToday(new Date(postDate)) && startFrame > 0 && (
