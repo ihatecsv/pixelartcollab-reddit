@@ -359,9 +359,9 @@ Devvit.addCustomPostType({
                   {isPostMadeToday(new Date(postDate)) ?
                     `${userHasVotedForSelectedPixel ? "Voted, " : ""}${millisecondsToNaturalLanguage(countdown)} remaining` :
                     startFrame > 0 ?
-                    `Frame ${selectedFrame + 1} / ${maxFrame + 1}` :
-                    "Voting has concluded"
-                }
+                      `Frame ${selectedFrame + 1} / ${maxFrame + 1}` :
+                      "Voting has concluded"
+                  }
                 </text>
                 {!isPostMadeToday(new Date(postDate)) && startFrame > 0 && (
                   <button onPress={() => navigateFrames(1)}>Next</button>
@@ -395,6 +395,35 @@ Devvit.addMenuItem({
       `Created a new Place Mini post in ${currentSubreddit.name}`
     );
   },
+});
+
+Devvit.addSchedulerJob({
+  name: 'daily-place-mini',
+  onRun: async (job, context) => {
+    const subreddit = await context.reddit.getCurrentSubreddit();
+    await context.reddit.submitPost({
+      title: `Place Mini - ${new Date().toLocaleDateString()}`,
+      subredditName: subreddit.name,
+      preview: (
+        <vstack padding="medium">
+          <text>Loading...</text>
+        </vstack>
+      ),
+    });
+  },
+});
+
+Devvit.addTrigger({
+  events: ["AppInstall", "AppUpgrade"],
+  onEvent: async (_, context) => {
+    const jobs = await context.scheduler.listJobs();
+    for (const job of jobs) {
+      if ('cron' in job) {
+        await context.scheduler.cancelJob(job.id);
+      }
+    }
+    await context.scheduler.runJob({ cron: '0 0 * * *', name: 'daily-place-mini' });
+  }
 });
 
 export default Devvit;
