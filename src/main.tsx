@@ -153,7 +153,7 @@ Devvit.addCustomPostType({
     const [countdown, setCountdown] = context.useState<number>(
       nextPeriodClose - Date.now()
     );
-    const [currentFrame, setCurrentFrame] = context.useState<number>(startFrame);
+    const [maxFrame, setMaxFrame] = context.useState<number>(startFrame);
     const [selectedFrame, setSelectedFrame] = context.useState<number>(startFrame);
 
     const voteForColor = async (x: number, y: number, color: string) => {
@@ -254,7 +254,7 @@ Devvit.addCustomPostType({
         }
 
         setLocalGrid(latestGrid);
-        setCurrentFrame(gridHistoryCount);
+        setMaxFrame(gridHistoryCount);
         setSelectedFrame(gridHistoryCount);
 
         // Set next period close
@@ -354,11 +354,18 @@ Devvit.addCustomPostType({
                 ))}
               </vstack>
               <hstack gap="small" alignment="middle">
+                {!isPostMadeToday(new Date(postDate)) && startFrame > 0 && (
+                  <button onPress={() => navigateFrames(-1)}>Previous Frame</button>
+                )}
                 <text>
                   {isPostMadeToday(new Date(postDate)) ?
                     `${userHasVotedForSelectedPixel ? "Voted, " : ""}${millisecondsToNaturalLanguage(countdown)} remaining` :
-                    "Voting has concluded"}
+                    `Frame ${selectedFrame + 1} / ${maxFrame + 1}`
+                }
                 </text>
+                {!isPostMadeToday(new Date(postDate)) && startFrame > 0 && (
+                  <button onPress={() => navigateFrames(1)}>Next Frame</button>
+                )}
               </hstack>
             </>
           )}
