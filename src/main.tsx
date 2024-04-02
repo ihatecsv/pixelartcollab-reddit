@@ -310,8 +310,18 @@ Devvit.addCustomPostType({
                       </svg>`}
                     imageHeight={256 / N}
                     imageWidth={256 / N}
-                    onPress={isPostMadeToday(new Date(postDate)) ? () => {
+                    onPress={isPostMadeToday(new Date(postDate)) ? async () => {
                       setSelectedPixel([rowIndex, colIndex]);
+                      const latestGridRes = await redis.get(gridKey);
+                      if (latestGridRes) {
+                        const latestGrid = JSON.parse(latestGridRes) as string[][];
+                        setLocalGrid(latestGrid);
+                      }
+                      const latestVotesRes = await redis.get(votesKey);
+                      if (latestVotesRes) {
+                        const latestVotes = JSON.parse(latestVotesRes);
+                        votes = latestVotes;
+                      }
                     } : undefined}
                   />
                 ))}
