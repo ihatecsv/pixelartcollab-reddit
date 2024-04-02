@@ -98,7 +98,7 @@ Devvit.configure({
 });
 
 Devvit.addCustomPostType({
-  name: "Pixel Art Collab",
+  name: "Place Mini",
   description: "A 16x16 grid where users can vote on the color of each pixel.",
   height: "tall",
   render: async (context) => {
@@ -109,7 +109,8 @@ Devvit.addCustomPostType({
     const post = await context.reddit.getPostById(context.postId || "");
 
     if (!post) {
-      return <text>Post not found</text>;
+      context.ui.showToast("Post not found");
+      return;
     }
 
     const postDate = post.createdAt;
@@ -142,7 +143,6 @@ Devvit.addCustomPostType({
     const [selectedPixel, setSelectedPixel] = context.useState<
       [number, number] | null
     >([0, 0]);
-    const [selectedColor, setSelectedColor] = context.useState<string>("");
     const [localGrid, setLocalGrid] = context.useState<string[][]>(grid);
     const [countdown, setCountdown] = context.useState<number>(
       nextPeriodClose - Date.now()
@@ -150,7 +150,20 @@ Devvit.addCustomPostType({
 
     const voteForColor = async (x: number, y: number, color: string) => {
       const voteKey = `${x},${y}`;
+
+      // Get votes from Redis to ensure we have the latest data
+      const votesRes = await redis.get(votesKey);
+      if (votesRes) {
+        const updatedVotes = JSON.parse(votesRes);
+        votes = updatedVotes;
+      }
+
       if (!votes[voteKey]) votes[voteKey] = {};
+
+      // Initialize color vote detail if not present
+      if (!votes[voteKey][color]) {
+        votes[voteKey][color] = { count: 0, userIds: [] };
+      }
 
       // Check if the selected color is the same as the current color of the pixel
       if (localGrid[x][y] === color) {
@@ -171,11 +184,6 @@ Devvit.addCustomPostType({
         return;
       }
 
-      // Initialize color vote detail if not present
-      if (!votes[voteKey][color]) {
-        votes[voteKey][color] = { count: 0, userIds: [] };
-      }
-
       // Increment vote count and add user ID
       votes[voteKey][color].count += 1;
       votes[voteKey][color].userIds.push(context.userId || "");
@@ -192,12 +200,12 @@ Devvit.addCustomPostType({
     // Periodically refresh the grid
     const checkGrid = context.useInterval(async () => {
       const now = Date.now();
-      let latestGrid = JSON.parse(
-        (await redis.get(gridKey)) || "[]"
-      ) as string[][];
-      let latestVotes = JSON.parse(
-        (await redis.get(votesKey)) || "{}"
-      ) as Votes;
+
+      // Fetch the latest grid and votes from Redis at the beginning of each interval
+      let latestGridRes = await redis.get(gridKey);
+      let latestGrid = latestGridRes ? JSON.parse(latestGridRes) as string[][] : localGrid; // Use localGrid as fallback
+      let latestVotesRes = await redis.get(votesKey);
+      let latestVotes = latestVotesRes ? JSON.parse(latestVotesRes) as Votes : votes; // Use votes as fallback
       let periodClose = parseInt((await redis.get(periodCloseKey)) || "0");
 
       if (now >= periodClose) {
@@ -220,6 +228,13 @@ Devvit.addCustomPostType({
 
         // Update grid
         await redis.set(gridKey, JSON.stringify(latestGrid));
+
+        // Fetch the latest grid from Redis after updating
+        latestGridRes = await redis.get(gridKey);
+        if (latestGridRes) {
+          latestGrid = JSON.parse(latestGridRes);
+        }
+
         setLocalGrid(latestGrid);
 
         // Set next period close
@@ -320,13 +335,13 @@ Devvit.addCustomPostType({
 
 Devvit.addMenuItem({
   location: "subreddit",
-  label: "Create a Pixel Art Collab",
+  label: "Create a Place Mini",
   forUserType: ["moderator"],
   onPress: async (_, context) => {
     const { reddit, ui } = context;
     const currentSubreddit = await reddit.getCurrentSubreddit();
     await reddit.submitPost({
-      title: `Pixel Art Collab - ${new Date().toLocaleDateString()}`,
+      title: `Place Mini - ${new Date().toLocaleDateString()}`,
       subredditName: currentSubreddit.name,
       preview: (
         <vstack padding="medium">
@@ -335,7 +350,7 @@ Devvit.addMenuItem({
       ),
     });
     ui.showToast(
-      `Created a new Pixel Art Collab post in ${currentSubreddit.name}`
+      `Created a new Place Mini post in ${currentSubreddit.name}`
     );
   },
 });
