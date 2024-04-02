@@ -355,7 +355,7 @@ Devvit.addCustomPostType({
               </vstack>
               <hstack gap="small" alignment="middle">
                 {!isPostMadeToday(new Date(postDate)) && startFrame > 0 && (
-                  <button onPress={() => navigateFrames(-1)}>Previous Frame</button>
+                  <button onPress={() => navigateFrames(-1)}>Previous</button>
                 )}
                 <text>
                   {isPostMadeToday(new Date(postDate)) ?
@@ -366,7 +366,7 @@ Devvit.addCustomPostType({
                 }
                 </text>
                 {!isPostMadeToday(new Date(postDate)) && startFrame > 0 && (
-                  <button onPress={() => navigateFrames(1)}>Next Frame</button>
+                  <button onPress={() => navigateFrames(1)}>Next</button>
                 )}
               </hstack>
             </>
