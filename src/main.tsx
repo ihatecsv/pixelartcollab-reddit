@@ -294,7 +294,7 @@ Devvit.addCustomPostType({
     return (
       <blocks>
         <vstack padding="large" alignment="center middle">
-          <vstack backgroundColor="white" border="thin" borderColor="gray">
+          <vstack backgroundColor="white" border="thin" borderColor="gray" padding="small">
             {localGrid.map((row, rowIndex) => (
               <hstack>
                 {row.map((color, colIndex) => (
@@ -330,38 +330,40 @@ Devvit.addCustomPostType({
           </vstack>
           {selectedPixel && (
             <>
-              <vstack padding="small">
-                {Array.from({ length: 2 }, (_, i) => (
-                  <hstack gap="small" padding="small">
-                    {colors.slice(i * 8, (i + 1) * 8).map((color) => (
-                      <image
-                        onPress={isPostMadeToday(new Date(postDate)) && !userHasVotedForSelectedPixel ?
-                          () => voteForColor(selectedPixel[0], selectedPixel[1], color) :
-                          undefined}
-                        url={svg`<svg viewBox="0 0 20 20">
+              {isPostMadeToday(new Date(postDate)) && (
+                <vstack>
+                  {Array.from({ length: 2 }, (_, i) => (
+                    <hstack gap="small" padding="small">
+                      {colors.slice(i * 8, (i + 1) * 8).map((color) => (
+                        <image
+                          onPress={isPostMadeToday(new Date(postDate)) && !userHasVotedForSelectedPixel ?
+                            () => voteForColor(selectedPixel[0], selectedPixel[1], color) :
+                            undefined}
+                          url={svg`<svg viewBox="0 0 20 20">
                           <rect fill="${color}" x="0" y="0" width="20" height="20" />
                           ${userHasVotedForSelectedPixel &&
-                            selectedPixel &&
-                            votes[`${selectedPixel[0]},${selectedPixel[1]}`] &&
-                            votes[`${selectedPixel[0]},${selectedPixel[1]}`][color]
-                            ? `<rect fill="none" x="0" y="0" width="20" height="20" />`
-                            : ""
-                          }
+                              selectedPixel &&
+                              votes[`${selectedPixel[0]},${selectedPixel[1]}`] &&
+                              votes[`${selectedPixel[0]},${selectedPixel[1]}`][color]
+                              ? `<rect fill="none" x="0" y="0" width="20" height="20" />`
+                              : ""
+                            }
                           <text x="10" y="15" font-size="15" fill="${isDark(color) ? "white" : "black"}" text-anchor="middle" font-family="monospace" font-weight="normal">${selectedPixel &&
-                            votes[`${selectedPixel[0]},${selectedPixel[1]}`] &&
-                            votes[`${selectedPixel[0]},${selectedPixel[1]}`][color]
-                            ? votes[`${selectedPixel[0]},${selectedPixel[1]}`][color].count
-                            : 0
-                          }</text>
+                              votes[`${selectedPixel[0]},${selectedPixel[1]}`] &&
+                              votes[`${selectedPixel[0]},${selectedPixel[1]}`][color]
+                              ? votes[`${selectedPixel[0]},${selectedPixel[1]}`][color].count
+                              : 0
+                            }</text>
                         </svg>`}
-                        imageHeight={20}
-                        imageWidth={20}
-                      />
-                    ))}
-                  </hstack>
-                ))}
-              </vstack>
-              <hstack gap="small" alignment="middle">
+                          imageHeight={20}
+                          imageWidth={20}
+                        />
+                      ))}
+                    </hstack>
+                  ))}
+                </vstack>
+              )}
+              <hstack gap="small" alignment="middle" padding="medium">
                 {!isPostMadeToday(new Date(postDate)) && startFrame > 0 && (
                   <button onPress={() => navigateFrames(-1)}>Previous</button>
                 )}
