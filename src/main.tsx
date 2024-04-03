@@ -144,9 +144,9 @@ Devvit.addCustomPostType({
 
     let startFrame = parseInt((await redis.get(gridHistoryCountKey)) || "0");
 
-    const [selectedPixel, setSelectedPixel] = context.useState<
-      [number, number] | null
-    >([0, 0]);
+    const [selectedPixel, setSelectedPixel] = context.useState<[number, number] | null>(
+      [Math.floor(Math.random() * N), Math.floor(Math.random() * N)]
+    );
     const [localGrid, setLocalGrid] = context.useState<string[][]>(grid);
     const [countdown, setCountdown] = context.useState<number>(
       nextPeriodClose - Date.now()
@@ -294,14 +294,15 @@ Devvit.addCustomPostType({
     return (
       <blocks>
         <vstack padding="large" alignment="center middle">
-          <vstack backgroundColor="white" border="thin" borderColor="gray" padding="small">
+          <vstack backgroundColor="white" border="thin" borderColor="gray">
             {localGrid.map((row, rowIndex) => (
               <hstack>
                 {row.map((color, colIndex) => (
                   <image
                     url={svg`<svg viewBox="0 0 10 10">
                         <rect fill="${color}" x="0" y="0" width="10" height="10" />
-                        ${selectedPixel &&
+                        ${isPostMadeToday(new Date(postDate)) &&
+                        selectedPixel &&
                         selectedPixel[0] === rowIndex &&
                         selectedPixel[1] === colIndex
                         ? `<rect fill="none" stroke="gold" stroke-width="2" x="0" y="0" width="10" height="10" />`
@@ -331,7 +332,11 @@ Devvit.addCustomPostType({
           {selectedPixel && (
             <>
               {isPostMadeToday(new Date(postDate)) && (
-                <vstack>
+                <vstack padding="small">
+                </vstack>
+              )}
+              {isPostMadeToday(new Date(postDate)) && (
+                <vstack padding="small">
                   {Array.from({ length: 2 }, (_, i) => (
                     <hstack gap="small" padding="small">
                       {colors.slice(i * 8, (i + 1) * 8).map((color) => (
@@ -371,7 +376,7 @@ Devvit.addCustomPostType({
                   {isPostMadeToday(new Date(postDate)) ?
                     `${userHasVotedForSelectedPixel ? "Voted, " : ""}${millisecondsToNaturalLanguage(countdown)} remaining` :
                     startFrame > 0 ?
-                      `Frame ${selectedFrame + 1} / ${maxFrame + 1}` :
+                      `Frame ${selectedFrame} / ${maxFrame}` :
                       "Voting has concluded"
                   }
                 </text>
