@@ -242,8 +242,22 @@ Devvit.addCustomPostType({
 
         // Save winning frame
         const gridHistoryCount = parseInt((await redis.get(gridHistoryCountKey)) || "0") + 1;
-        await redis.set(`${gridHistoryKeyBase}${gridHistoryCount}`, JSON.stringify(latestGrid));
-        await redis.set(gridHistoryCountKey, gridHistoryCount.toString());
+        const lastSavedFrameRes = await redis.get(`${gridHistoryKeyBase}${gridHistoryCount}`);
+        let isDifferentFromLastFrame = true;
+        if (lastSavedFrameRes) {
+          const lastSavedFrame = JSON.parse(lastSavedFrameRes);
+          // Compare the current grid with the last saved frame
+          isDifferentFromLastFrame = JSON.stringify(latestGrid) !== JSON.stringify(lastSavedFrame);
+        }
+
+        if (isDifferentFromLastFrame) {
+          // Save winning frame only if it's different from the last saved frame
+          await redis.set(`${gridHistoryKeyBase}${gridHistoryCount}`, JSON.stringify(latestGrid));
+          await redis.set(gridHistoryCountKey, gridHistoryCount.toString());
+
+          setMaxFrame(gridHistoryCount);
+          setSelectedFrame(gridHistoryCount);
+        }
 
         // Fetch the latest grid from Redis after updating
         latestGridRes = await redis.get(gridKey);
@@ -252,8 +266,6 @@ Devvit.addCustomPostType({
         }
 
         setLocalGrid(latestGrid);
-        setMaxFrame(gridHistoryCount);
-        setSelectedFrame(gridHistoryCount);
 
         // Set next period close
         periodClose = now + VOTING_PERIOD_DURATION;
